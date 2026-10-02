@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+
+# Dataset
+easy_ham/
+hard_ham/
+spam_2/
+emails_train.csv
+emails_test.csv
+
+# Trained model
+spamshield_model.pkl
+
+# Local/test files
+test_model.py
+check_thresholds.py
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Backup / temporary files
+app_backup.py

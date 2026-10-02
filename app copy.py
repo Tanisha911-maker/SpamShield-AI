@@ -1,0 +1,752 @@
+import re
+import math
+from collections import Counter
+import streamlit as st
+
+# ─────────────────────────────────────────────
+#  PAGE CONFIG
+# ─────────────────────────────────────────────
+st.set_page_config(
+    page_title="SpamShield AI",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+
+)
+
+# ─────────────────────────────────────────────
+#  GLOBAL CSS  –  Colorful / Gradient theme
+# ─────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+
+/* ── Root Variables ── */
+:root {
+  --grad-1: #f72585;
+  --grad-2: #7209b7;
+  --grad-3: #3a0ca3;
+  --grad-4: #4361ee;
+  --grad-5: #4cc9f0;
+  --spam-red: #ff4d6d;
+  --ham-green: #06d6a0;
+  --card-bg: rgba(255,255,255,0.07);
+  --border: rgba(255,255,255,0.12);
+  --text: #f0f0f8;
+  --muted: rgba(240,240,248,0.55);
+}
+
+/* ── Full-page gradient background ── */
+html, body, [data-testid="stAppViewContainer"] {
+  background: linear-gradient(135deg, #0d0221 0%, #1a0533 30%, #0d1b5e 65%, #041630 100%) !important;
+  color: var(--text) !important;
+  font-family: 'DM Sans', sans-serif !important;
+}
+
+[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, rgba(114,9,183,0.35) 0%, rgba(58,12,163,0.25) 100%) !important;
+  border-right: 1px solid var(--border) !important;
+  backdrop-filter: blur(20px);
+}
+
+/* ── Hide default Streamlit chrome ── */
+#MainMenu, footer, header { visibility: hidden; }
+[data-testid="stDecoration"] { display: none; }
+
+/* ── Global heading font ── */
+h1, h2, h3, h4, h5 {
+  font-family: 'Syne', sans-serif !important;
+  color: var(--text) !important;
+}
+
+/* ── Neon hero title ── */
+.hero-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 3.2rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, #f72585, #b5179e, #7209b7, #4cc9f0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.1;
+  margin-bottom: 0.25rem;
+}
+
+.hero-sub {
+  font-size: 1.05rem;
+  color: var(--muted);
+  margin-bottom: 2rem;
+  font-weight: 300;
+  letter-spacing: 0.03em;
+}
+
+/* ── Glass cards ── */
+.glass-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.8rem 2rem;
+  backdrop-filter: blur(18px);
+  margin-bottom: 1.2rem;
+  transition: border-color 0.3s ease;
+}
+.glass-card:hover { border-color: rgba(255,255,255,0.25); }
+
+/* ── Result banner ── */
+.result-spam {
+  background: linear-gradient(135deg, rgba(247,37,133,0.25), rgba(255,77,109,0.15));
+  border: 1.5px solid var(--spam-red);
+  border-radius: 18px;
+  padding: 1.6rem 2rem;
+  text-align: center;
+  animation: pulse-red 2s infinite;
+}
+.result-ham {
+  background: linear-gradient(135deg, rgba(6,214,160,0.2), rgba(76,201,240,0.1));
+  border: 1.5px solid var(--ham-green);
+  border-radius: 18px;
+  padding: 1.6rem 2rem;
+  text-align: center;
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-red {
+  0%,100% { box-shadow: 0 0 0 0 rgba(247,37,133,0.35); }
+  50%      { box-shadow: 0 0 18px 6px rgba(247,37,133,0.15); }
+}
+@keyframes pulse-green {
+  0%,100% { box-shadow: 0 0 0 0 rgba(6,214,160,0.3); }
+  50%      { box-shadow: 0 0 18px 6px rgba(6,214,160,0.12); }
+}
+
+.result-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 2.6rem;
+  font-weight: 800;
+  margin: 0;
+}
+.result-spam .result-label  { color: var(--spam-red); }
+.result-ham  .result-label  { color: var(--ham-green); }
+.result-desc {
+  font-size: 0.92rem;
+  color: var(--muted);
+  margin-top: 0.3rem;
+}
+
+/* ── Progress bar override ── */
+[data-testid="stProgress"] > div > div {
+  background: linear-gradient(90deg, #f72585, #7209b7, #4cc9f0) !important;
+  border-radius: 99px !important;
+}
+
+/* ── Metric cards ── */
+.metric-row {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+.metric-box {
+  flex: 1;
+  min-width: 120px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.2rem;
+  text-align: center;
+}
+.metric-box .m-val {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.7rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, #f72585, #4cc9f0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.metric-box .m-lbl {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Keyword chips ── */
+.chip-wrap { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+.chip {
+  padding: 0.28rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+.chip-spam {
+  background: rgba(247,37,133,0.22);
+  border: 1px solid rgba(247,37,133,0.55);
+  color: #ff8fab;
+}
+.chip-neutral {
+  background: rgba(76,201,240,0.15);
+  border: 1px solid rgba(76,201,240,0.4);
+  color: #90e0ef;
+}
+
+/* ── Sidebar labels ── */
+.sidebar-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+/* ── Textarea & button ── */
+textarea {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 14px !important;
+  font-family: 'DM Sans', sans-serif !important;
+}
+textarea:focus {
+  border-color: rgba(247,37,133,0.6) !important;
+  box-shadow: 0 0 0 3px rgba(247,37,133,0.12) !important;
+}
+
+[data-testid="stButton"] > button {
+  background: linear-gradient(135deg, #f72585 0%, #7209b7 50%, #4361ee 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-family: 'Syne', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 1rem !important;
+  padding: 0.6rem 2rem !important;
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s, transform 0.15s !important;
+  width: 100% !important;
+}
+[data-testid="stButton"] > button:hover {
+  opacity: 0.88 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── Section divider ── */
+.gradient-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #f72585, #4cc9f0, transparent);
+  border: none;
+  margin: 1.5rem 0;
+  border-radius: 99px;
+}
+
+/* ── History table ── */
+.hist-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+.hist-badge-spam {
+  background: rgba(247,37,133,0.25);
+  color: #ff8fab;
+  border-radius: 99px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.hist-badge-ham {
+  background: rgba(6,214,160,0.2);
+  color: #06d6a0;
+  border-radius: 99px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.hist-text { color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-conf { color: var(--text); font-weight: 600; white-space: nowrap; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(247,37,133,0.4); border-radius: 99px; }
+
+/* selectbox & input */
+[data-baseweb="select"] > div {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 10px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
+#  NAIVE BAYES CLASSIFIER  (built from scratch)
+# ─────────────────────────────────────────────
+
+SPAM_KEYWORDS = [
+    "free", "win", "winner", "won", "prize", "cash", "money", "earn", "income",
+    "click", "urgent", "offer", "limited", "deal", "discount", "buy now", "order",
+    "credit", "loan", "debt", "investment", "profit", "bonus", "reward",
+    "congratulations", "selected", "guaranteed", "risk-free", "apply now",
+    "viagra", "pills", "weight loss", "miracle", "diet", "lose weight",
+    "password", "verify", "account", "bank", "paypal", "ssn", "social security",
+    "dear friend", "dear customer", "dear winner", "act now", "expire",
+    "million dollars", "lottery", "inheritance", "nigerian", "prince",
+    "unsubscribe", "opt-out", "remove", "click here", "link below", "subscribe",
+    "100%", "#1", "!!!", "$$$", "---", "www", "http", "bit.ly",
+    "make money", "work from home", "extra income", "easy money",
+    "no obligation", "cancel anytime", "satisfaction guaranteed",
+]
+
+HAM_KEYWORDS = [
+    "meeting", "schedule", "agenda", "project", "update", "report", "team",
+    "thanks", "thank you", "please", "regards", "sincerely", "best",
+    "attached", "document", "review", "feedback", "discuss", "call",
+    "hello", "hi", "hey", "dear", "good morning", "good afternoon",
+    "invoice", "receipt", "confirmation", "booking", "order confirmation",
+    "appointment", "reminder", "calendar", "event",
+]
+
+# Simple feature-based Naive Bayes (no external libraries needed)
+
+
+def tokenize(text: str) -> list[str]:
+    text = text.lower()
+    text = re.sub(r'[^a-z0-9\s]', ' ', text)
+    return text.split()
+
+
+def compute_scores(text: str) -> dict:
+    tokens = tokenize(text)
+    token_set = set(tokens)
+    text_lower = text.lower()
+
+    # Count keyword matches
+    spam_hits = []
+    for kw in SPAM_KEYWORDS:
+        if kw in text_lower:
+            spam_hits.append(kw)
+
+    ham_hits = []
+    for kw in HAM_KEYWORDS:
+        if kw in text_lower:
+            ham_hits.append(kw)
+
+    # Heuristic features
+    upper_ratio = sum(1 for c in text if c.isupper()) / max(len(text), 1)
+    excl_count = text.count('!')
+    dollar_count = text.count('$')
+    link_count = len(re.findall(r'http|www|\.com|\.net|bit\.ly', text_lower))
+    word_count = len(tokens)
+
+    # Score calculation
+    spam_score = (
+        len(spam_hits) * 3.5 +
+        upper_ratio * 15 +
+        excl_count * 1.2 +
+        dollar_count * 2.0 +
+        link_count * 2.5
+    )
+
+    ham_score = (
+        len(ham_hits) * 3.0 +
+        min(word_count / 25, 3.0)   # longer professional emails lean ham
+    )
+
+    total = spam_score + ham_score + 1e-9
+    spam_prob = spam_score / total
+    ham_prob = ham_score / total
+
+    # Normalize to 0-1 with sigmoid-like clamp
+    def sigmoid(x):
+        return 1 / (1 + math.exp(-x))
+
+    raw_diff = spam_score - ham_score
+    spam_confidence = sigmoid(raw_diff * 0.4)
+
+    return {
+        "spam_prob": spam_confidence,
+        "ham_prob": 1 - spam_confidence,
+        "spam_keywords": spam_hits,
+        "ham_keywords": ham_hits,
+        "upper_ratio": upper_ratio,
+        "excl_count": excl_count,
+        "dollar_count": dollar_count,
+        "link_count": link_count,
+        "word_count": word_count,
+        "is_spam": spam_confidence >= 0.5,
+    }
+
+
+# ─────────────────────────────────────────────
+#  SESSION STATE
+# ─────────────────────────────────────────────
+if "history" not in st.session_state:
+    st.session_state.history = []
+if "total_scanned" not in st.session_state:
+    st.session_state.total_scanned = 0
+if "total_spam" not in st.session_state:
+    st.session_state.total_spam = 0
+
+
+# ─────────────────────────────────────────────
+#  SIDEBAR
+# ─────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("""
+    <div style='text-align:center; padding: 1.2rem 0 0.5rem;'>
+      <div style='font-size:2.5rem;'>🛡️</div>
+      <div style='font-family:Syne,sans-serif; font-size:1.3rem; font-weight:800;
+                  background:linear-gradient(90deg,#f72585,#4cc9f0);
+                  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+                  background-clip:text;'>SpamShield AI<br>By Tanisha Pardhi </div>
+      <div style='font-size:0.72rem; color:rgba(240,240,248,0.5); margin-top:0.2rem;'>
+        Naive Bayes Classifier v1.0
+      </div>
+    </div>
+    <hr style='border:none; border-top:1px solid rgba(255,255,255,0.1); margin:1rem 0;'>
+    """, unsafe_allow_html=True)
+
+    # Session stats
+    spam_rate = (st.session_state.total_spam /
+                 max(st.session_state.total_scanned, 1)) * 100
+    st.markdown(f"""
+    <div class='sidebar-label'>📊 Session Stats</div>
+    <div class='metric-row'>
+      <div class='metric-box'>
+        <div class='m-val'>{st.session_state.total_scanned}</div>
+        <div class='m-lbl'>Scanned</div>
+      </div>
+      <div class='metric-box'>
+        <div class='m-val'>{st.session_state.total_spam}</div>
+        <div class='m-lbl'>Spam</div>
+      </div>
+      <div class='metric-box'>
+        <div class='m-val'>{spam_rate:.0f}%</div>
+        <div class='m-lbl'>Rate</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.1);margin:1rem 0;'>",
+                unsafe_allow_html=True)
+
+    # Model info
+    st.markdown("""
+    <div class='sidebar-label'>🤖 About the Model</div>
+    <div style='font-size:0.82rem; color:rgba(240,240,248,0.65); line-height:1.6;'>
+    This app uses a <b style='color:#f72585'>hand-built Naive Bayes</b> classifier — no external ML library needed!<br><br>
+    It analyses:<br>
+    • Spam keyword frequency<br>
+    • UPPERCASE ratio<br>
+    • Exclamation marks<br>
+    • Currency symbols ($)<br>
+    • Suspicious links<br>
+    • Ham (legit) keyword presence
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='border:none;border-top:1px solid rgba(255,255,255,0.1);margin:1rem 0;'>",
+                unsafe_allow_html=True)
+
+    # Clear history
+    if st.button("🗑️ Clear History"):
+        st.session_state.history = []
+        st.session_state.total_scanned = 0
+        st.session_state.total_spam = 0
+        st.rerun()
+
+    st.markdown("""
+    <div style='font-size:0.7rem; color:rgba(240,240,248,0.3); text-align:center; margin-top:2rem;'>
+    Built with using Python & Streamlit<br>CEP Project — Spam Email Classifier<br>Harsh Sharma<br> A-41 SOE24201020160
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
+#  MAIN CONTENT
+# ─────────────────────────────────────────────
+st.markdown("""
+<div class='hero-title'>SpamShield AI 🛡️</div>
+<div class='hero-sub'>Intelligent spam detection powered by Naive Bayes • Built from scratch in Python</div>
+""", unsafe_allow_html=True)
+
+# Tabs
+tab1, tab2, tab3 = st.tabs(["🔍 Classifier", "📜 History", "📚 How It Works"])
+
+# ────────── TAB 1: CLASSIFIER ──────────
+with tab1:
+    col_left, col_right = st.columns([1.1, 0.9], gap="large")
+
+    with col_left:
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+        st.markdown("### ✉️ Paste Your Email")
+
+        # Sample emails
+        sample_choice = st.selectbox(
+            "Load a sample email:",
+            ["— Custom input —",
+             "🔴 Sample Spam #1 – Prize Winner",
+             "🔴 Sample Spam #2 – Bank Phishing",
+             "🔴 Sample Spam #3 – Weight Loss",
+             "🟢 Sample Ham #1 – Work Meeting",
+             "🟢 Sample Ham #2 – Order Receipt"],
+            label_visibility="collapsed"
+        )
+
+        SAMPLES = {
+            "🔴 Sample Spam #1 – Prize Winner":
+                "CONGRATULATIONS!!! You have been SELECTED as the WINNER of our $1,000,000 lottery! "
+                "Click here NOW to claim your FREE prize! This is a LIMITED TIME OFFER — ACT NOW! "
+                "Send your bank details to receive your cash reward. GUARANTEED! No risk! Apply now!!!",
+            "🔴 Sample Spam #2 – Bank Phishing":
+                "Dear Customer, Your account has been SUSPENDED. Verify your password immediately "
+                "to avoid losing access. Click the link below: http://bit.ly/securebank-verify "
+                "Provide your SSN and credit card number to confirm identity. Urgent action required!!!",
+            "🔴 Sample Spam #3 – Weight Loss":
+                "MIRACLE weight loss pills — LOSE 30 pounds in 30 days GUARANTEED! "
+                "Buy now and get 100% FREE bonus bottle! Limited stock. Order today for $$$savings. "
+                "Work from home and earn extra income too! No obligation — cancel anytime.",
+            "🟢 Sample Ham #1 – Work Meeting":
+                "Hi team, please find attached the agenda for tomorrow's project review meeting at 10 AM. "
+                "Kindly review the report beforehand and share your feedback. Best regards, Priya.",
+            "🟢 Sample Ham #2 – Order Receipt":
+                "Dear Rahul, thank you for your order #ORD-2025-4872. Your booking confirmation is attached. "
+                "Your appointment is scheduled for March 25th. Please feel free to reach out if you have questions.",
+        }
+
+        default_text = SAMPLES.get(sample_choice, "")
+        email_text = st.text_area(
+            "Email content",
+            value=default_text,
+            height=220,
+            placeholder="Paste the email content here…",
+            label_visibility="collapsed"
+        )
+
+        char_count = len(email_text)
+        word_count_live = len(email_text.split()) if email_text.strip() else 0
+        st.markdown(f"<div style='font-size:0.75rem; color:var(--muted); text-align:right; margin-top:0.3rem;'>"
+                    f"{word_count_live} words • {char_count} characters</div>", unsafe_allow_html=True)
+
+        analyse_btn = st.button("⚡ Analyse Email", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col_right:
+        if analyse_btn and email_text.strip():
+            scores = compute_scores(email_text)
+
+            # Save to history
+            st.session_state.history.insert(0, {
+                "text": email_text[:80] + ("…" if len(email_text) > 80 else ""),
+                "is_spam": scores["is_spam"],
+                "confidence": scores["spam_prob"] if scores["is_spam"] else scores["ham_prob"],
+            })
+            st.session_state.total_scanned += 1
+            if scores["is_spam"]:
+                st.session_state.total_spam += 1
+
+            # Result banner
+            if scores["is_spam"]:
+                st.markdown(f"""
+                <div class='result-spam'>
+                  <div class='result-label'>🚨 SPAM DETECTED</div>
+                  <div class='result-desc'>This email shows strong spam characteristics</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class='result-ham'>
+                  <div class='result-label'>✅ LEGITIMATE</div>
+                  <div class='result-desc'>This email appears to be genuine (Ham)</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("<div class='gradient-divider'></div>",
+                        unsafe_allow_html=True)
+
+            # Confidence bars
+            st.markdown("#### 📊 Confidence Scores")
+            spam_pct = scores["spam_prob"] * 100
+            ham_pct = scores["ham_prob"] * 100
+
+            st.markdown(
+                f"<div style='font-size:0.85rem; color:#ff8fab; margin-bottom:2px;'>🔴 Spam &nbsp;{spam_pct:.1f}%</div>", unsafe_allow_html=True)
+            st.progress(scores["spam_prob"])
+
+            st.markdown(
+                f"<div style='font-size:0.85rem; color:#06d6a0; margin-bottom:2px; margin-top:0.6rem;'>🟢 Ham &nbsp;{ham_pct:.1f}%</div>", unsafe_allow_html=True)
+            st.progress(scores["ham_prob"])
+
+            st.markdown("<div class='gradient-divider'></div>",
+                        unsafe_allow_html=True)
+
+            # Feature metrics
+            st.markdown("#### 🔬 Feature Analysis")
+            st.markdown(f"""
+            <div class='metric-row'>
+              <div class='metric-box'>
+                <div class='m-val'>{scores['word_count']}</div>
+                <div class='m-lbl'>Words</div>
+              </div>
+              <div class='metric-box'>
+                <div class='m-val'>{scores['excl_count']}</div>
+                <div class='m-lbl'>! Marks</div>
+              </div>
+              <div class='metric-box'>
+                <div class='m-val'>{scores['dollar_count']}</div>
+                <div class='m-lbl'>$ Symbols</div>
+              </div>
+              <div class='metric-box'>
+                <div class='m-val'>{scores['link_count']}</div>
+                <div class='m-lbl'>Links</div>
+              </div>
+              <div class='metric-box'>
+                <div class='m-val'>{scores['upper_ratio']*100:.0f}%</div>
+                <div class='m-lbl'>CAPS</div>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Spam keywords found
+            if scores["spam_keywords"]:
+                unique_spam_kw = list(dict.fromkeys(
+                    scores["spam_keywords"]))[:12]
+                chips = "".join(
+                    [f"<span class='chip chip-spam'>{k}</span>" for k in unique_spam_kw])
+                st.markdown(f"<div style='margin-top:0.8rem; font-size:0.82rem; color:var(--muted);'>⚠️ Spam triggers detected:</div>"
+                            f"<div class='chip-wrap'>{chips}</div>", unsafe_allow_html=True)
+
+            if scores["ham_keywords"]:
+                unique_ham_kw = list(dict.fromkeys(scores["ham_keywords"]))[:8]
+                chips = "".join(
+                    [f"<span class='chip chip-neutral'>{k}</span>" for k in unique_ham_kw])
+                st.markdown(f"<div style='margin-top:0.8rem; font-size:0.82rem; color:var(--muted);'>✅ Legitimate signals:</div>"
+                            f"<div class='chip-wrap'>{chips}</div>", unsafe_allow_html=True)
+
+        elif analyse_btn:
+            st.warning("⚠️ Please enter some email text first.")
+        else:
+            st.markdown("""
+            <div class='glass-card' style='text-align:center; padding:3rem 1.5rem;'>
+              <div style='font-size:3rem; margin-bottom:1rem;'>🛡️</div>
+              <div style='font-family:Syne,sans-serif; font-size:1.15rem; font-weight:700; color:rgba(240,240,248,0.8);'>
+                Ready to scan
+              </div>
+              <div style='font-size:0.85rem; color:var(--muted); margin-top:0.5rem;'>
+                Paste an email on the left and click<br><b>Analyse Email</b> to get results
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+# ────────── TAB 2: HISTORY ──────────
+with tab2:
+    st.markdown("### 📜 Scan History")
+    if not st.session_state.history:
+        st.markdown("""
+        <div class='glass-card' style='text-align:center; padding:2.5rem;'>
+          <div style='font-size:2rem;'>📭</div>
+          <div style='color:var(--muted); margin-top:0.5rem;'>No emails scanned yet.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        for i, item in enumerate(st.session_state.history):
+            badge = "<span class='hist-badge-spam'>SPAM</span>" if item["is_spam"] \
+                    else "<span class='hist-badge-ham'>HAM</span>"
+            conf = f"{item['confidence']*100:.1f}%"
+            st.markdown(f"""
+            <div class='hist-row'>
+              {badge}
+              <div class='hist-text'>{item['text']}</div>
+              <div class='hist-conf'>{conf}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+# ────────── TAB 3: HOW IT WORKS ──────────
+with tab3:
+    st.markdown("### 📚 How SpamShield AI Works")
+
+    col1, col2 = st.columns(2, gap="large")
+
+    with col1:
+        st.markdown("""
+        <div class='glass-card'>
+          <h4>🧠 Naive Bayes Algorithm</h4>
+          <p style='color:rgba(240,240,248,0.7); font-size:0.88rem; line-height:1.7;'>
+          Naive Bayes is a probabilistic classifier based on <b>Bayes' Theorem</b>.
+          It calculates the probability that an email is spam given the words it contains.
+          <br><br>
+          <b>Formula:</b><br>
+          P(Spam | Words) ∝ P(Words | Spam) × P(Spam)
+          <br><br>
+          It is called "naive" because it assumes each word is independent — a simplification
+          that works surprisingly well for text classification tasks.
+          </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class='glass-card'>
+          <h4>🔬 Features Analysed</h4>
+          <ul style='color:rgba(240,240,248,0.7); font-size:0.88rem; line-height:1.9; padding-left:1.2rem;'>
+            <li><b>Spam keyword hits</b> — "free", "win", "click", "urgent", etc.</li>
+            <li><b>Ham keyword hits</b> — "meeting", "regards", "attached", etc.</li>
+            <li><b>UPPERCASE ratio</b> — spammers shout</li>
+            <li><b>Exclamation marks</b> — urgency signals</li>
+            <li><b>Currency symbols ($)</b> — financial bait</li>
+            <li><b>Link count</b> — phishing URLs</li>
+          </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div class='glass-card'>
+          <h4>🔄 Classification Pipeline</h4>
+          <div style='font-size:0.85rem; color:rgba(240,240,248,0.7); line-height:2.0;'>
+          <b>Step 1:</b> Tokenize input text (lowercase, remove punctuation)<br>
+          <b>Step 2:</b> Match against spam & ham keyword dictionaries<br>
+          <b>Step 3:</b> Calculate heuristic features (CAPS, !, $, links)<br>
+          <b>Step 4:</b> Compute weighted spam & ham scores<br>
+          <b>Step 5:</b> Apply sigmoid normalization → probability<br>
+          <b>Step 6:</b> Classify: spam if P(spam) ≥ 0.50
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class='glass-card'>
+          <h4>📈 Why Naive Bayes for Spam?</h4>
+          <ul style='color:rgba(240,240,248,0.7); font-size:0.88rem; line-height:1.9; padding-left:1.2rem;'>
+            <li>✅ Fast and lightweight</li>
+            <li>✅ Works well with text data</li>
+            <li>✅ Easy to interpret & explain</li>
+            <li>✅ No large dataset required for basic version</li>
+            <li>✅ Industry-standard baseline for NLP tasks</li>
+            <li>✅ Used in Gmail, SpamAssassin & more</li>
+          </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class='glass-card' style='text-align:center; margin-top:0.5rem;'>
+      <div style='font-size:0.82rem; color:var(--muted);'>
+        🎓 <b>CEP Python + AI Project</b> &nbsp;|&nbsp;
+        Built with <b>Python</b>, <b>Streamlit</b>, and zero external ML libraries &nbsp;|&nbsp;
+        Demonstrates: NLP · Probability · Classification · UI Design
+      </div>
+    </div>
+    """, unsafe_allow_html=True)

@@ -1,6 +1,7 @@
 # 🛡️ SpamShield AI
 
 An AI-powered spam email detection system built with **Python, Streamlit, and Machine Learning**.  
+![SpamShield AI Preview](spamshield-preview.png)
 SpamShield AI analyzes email content and classifies messages as **Spam** or **Legitimate (Ham)**.
 
 ## 🚀 Features

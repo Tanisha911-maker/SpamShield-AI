@@ -47,3 +47,11 @@ SpamShield-AI/
 ├── .gitignore
 ├── command.txt
 └── SpamShield-AI.pdf
+
+## ⚙️ How to Run
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Tanisha911-maker/SpamShield-AI.git
+cd SpamShield-AI

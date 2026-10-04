@@ -10,7 +10,7 @@ emails_train.csv
 emails_test.csv
 
 # Trained model
-spamshield_model.pkl
+
 
 # Local/test files
 test_model.py

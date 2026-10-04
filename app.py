@@ -589,7 +589,7 @@ with st.sidebar:
 
     st.markdown("""
     <div style='font-size:0.7rem; color:rgba(240,240,248,0.3); text-align:center; margin-top:2rem;'>
-    Built with using Python & Streamlit<br>CEP Project — Spam Email Classifier<br>Harsh Sharma<br> A-41 SOE24201020160
+    Built with using Python & Streamlit<br>CEP Project — Spam Email Classifier<br>Tanisha Pardhi<br> B-45 SOE25201030159
     </div>
     """, unsafe_allow_html=True)
 
